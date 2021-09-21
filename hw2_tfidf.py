@@ -13,34 +13,30 @@ stopword = stopwords.words('russian')
 morph = pymorphy2.MorphAnalyzer()
 m = Mystem()
 punctuation += '...'
+vectorizer = TfidfVectorizer()
 
 
-"""
-foldername - название папки, в которой лежат папки со всеми сезонами сериала. У меня она названа как 'friends-data-2'
-(см. конец кода).
-"""
-
-
-def get_texts(foldername):
+def get_paths(foldername):
     curr_dir = os.getcwd()
-    filepath = os.path.join(curr_dir, foldername)
-    files = list(os.walk(filepath))
-    friends = []
-    for i, element in enumerate(files):
-        if i != 0:
-            friends.append(element)
-    eps = {}
-    for season in friends:
-        for episode in season[2]:
-            eps[episode] = season[0]
-    texts = []
+    datapath = os.path.join(curr_dir, foldername)
+    filepaths = []
     titles = []
-    for k, v in eps.items():
-        with open(v + '/' + k, 'r', encoding='utf-8-sig') as f:
+    for path, dirs, files in os.walk(datapath):
+        for name in files:
+            filepaths.append(os.path.join(path, name))
+            titles.append(name)
+    filepaths = filepaths[1:]
+    titles = titles[1:]
+    return filepaths, titles
+
+
+def get_texts(filepaths):
+    texts = []
+    for file in filepaths:
+        with open(file, 'r', encoding='utf-8') as f:
             text = f.read()
-            texts.append(text)
-            titles.append(k)
-    return texts, titles
+        texts.append(text)
+    return texts
 
 
 def preprocessing(texts):
@@ -52,42 +48,38 @@ def preprocessing(texts):
                   and token != " "
                   and len(token) >= 3
                   and token.strip() not in punctuation
-                  and token.isdigit() == False]
+                  and token.isdigit() is False]
         text = " ".join(tokens)
         text = re.sub(r'[a-zA-Z]', '', text)
         corpus.append(text)
     return corpus
 
 
-def req_processing(request):
-    req = str(request)
-    tokens = m.lemmatize(req.lower())
+def preprocessing_request(request):
+    tokens = m.lemmatize(request.lower())
     tokens = [token for token in tokens if token not in stopword
-            and token != " "
-            and len(token) >= 3
-            and token.strip() not in punctuation
-            and token.isdigit() == False]
-    req = " ".join(tokens)
-    req = re.sub(r'[a-zA-Z]', '', req)
-    vectreq = vectorizer.transform([req]).toarray()
-    return vectreq
+              and token != " "
+              and len(token) >= 3
+              and token.strip() not in punctuation
+              and token.isdigit() is False]
+    req = re.sub(r'[a-zA-Z]', '', " ".join(tokens))
+    vrequest = vectorizer.transform([req]).toarray()
+    return vrequest
 
 
-def get_cosine(vectcorp, vectreq):
-    cdist = vectcorp.dot(vectreq.transpose())
-    return cdist
+def get_cosine(vcorpus, vrequest):
+    cosine = vcorpus.dot(vrequest.transpose())
+    return cosine
 
 
 if __name__ == '__main__':
-    vectorizer = TfidfVectorizer()
-    corpus = preprocessing(get_texts('friends-data-2')[0])
-    vectcorp = vectorizer.fit_transform(corpus).toarray()
+    paths, eps = get_paths('friends-data')
+    corp = preprocessing(get_texts(paths))
+    vectorizedcorpus = vectorizer.fit_transform(corp).toarray()
     while True:
-        request = input("введите запрос: ")
-        vectreq = req_processing(request)
-        cdist = get_cosine(vectcorp, vectreq)
-        onecdist = cdist.flatten()
-        order = sorted(range(len(onecdist)), key=lambda k: onecdist[k], reverse=True)
-        titles = get_texts('friends-data-2')[1]
+        yourtext = input("введите запрос: ")
+        vtext = preprocessing_request(yourtext)
+        cos = get_cosine(vectorizedcorpus, vtext)
+        order = sorted(range(len(cos.flatten())), key=lambda k: cos.flatten()[k], reverse=True)
         for item in order:
-            print(titles[item])
+            print(eps[item])
