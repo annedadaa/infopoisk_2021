@@ -5,7 +5,6 @@ import pymorphy2
 import numpy as np
 from scipy import sparse
 from pymystem3 import Mystem
-from sklearn.metrics.pairwise import cosine_similarity
 from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.feature_extraction.text import CountVectorizer
@@ -80,8 +79,8 @@ def bm25(corpus):
 def most_relevant(query, docs_matrix, corpus):
     prep_query = preprocessing(query)
     query_count_vec = count_vectorizer.transform([prep_query])
-    similarity = cosine_similarity(docs_matrix, query_count_vec)
-    sorted_scores_index = np.argsort(similarity, axis=0)[::-1]
+    similarity = np.dot(docs_matrix, query_count_vec.T)
+    sorted_scores_index = np.argsort(similarity.toarray(), axis=0)[::-1]
     corpus = np.array(corpus)
     results = corpus[sorted_scores_index.ravel()]
     return results
